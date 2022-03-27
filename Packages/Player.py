@@ -22,6 +22,11 @@ class Player(pygame.sprite.Sprite):
         self.attack_cooldown = 500
         self.attack_time = None
         
+        self.casting_spell = False
+        self.magic_cooldown = 2000
+        self.magic_time = None
+        
+        
         self.obstacles_sprites = obstacles_sprites
 
     def load_image(self):
@@ -39,7 +44,10 @@ class Player(pygame.sprite.Sprite):
             'attack_right': [],
             'attack_up': [],
             'attack_down': [],
-            'cast_spell': []
+            'cast_spell_left': [],
+            'cast_spell_down': [],
+            'cast_spell_right': [],
+            'cast_spell_up': []
         }
         for animation in self.animations:
             load_animations = [pygame.image.load(
@@ -50,40 +58,42 @@ class Player(pygame.sprite.Sprite):
     def input(self):
         self.delay = 0.15
         keys = pygame.key.get_pressed()
-        # Nhân vật di chuyển theo trục Ox
-        if keys[pygame.K_a]:
-            self.direction.x = -1
-            self.fancy = 'left'
-        elif keys[pygame.K_d]:
-            self.direction.x = 1
-            self.fancy = 'right'
-        else:
-            self.direction.x = 0
-            
+        
+        if not self.attacking and not self.casting_spell:
+            # Nhân vật di chuyển theo trục Ox
+            if keys[pygame.K_a]:
+                self.direction.x = -1
+                self.fancy = 'left'
+            elif keys[pygame.K_d]:
+                self.direction.x = 1
+                self.fancy = 'right'
+            else:
+                self.direction.x = 0
+                
 
-        # Nhân vật di chuyển theo trục Oy
-        if keys[pygame.K_w]:
-            self.direction.y = -1
-            self.fancy = 'up'
-        elif keys[pygame.K_s]:
-            self.direction.y = 1
-            self.fancy = 'down'
-        else:
-            self.direction.y = 0
+            # Nhân vật di chuyển theo trục Oy
+            if keys[pygame.K_w]:
+                self.direction.y = -1
+                self.fancy = 'up'
+            elif keys[pygame.K_s]:
+                self.direction.y = 1
+                self.fancy = 'down'
+            else:
+                self.direction.y = 0
             
         # Nhân vật tấn công
-        if keys[pygame.K_SPACE] and not self.attacking:
+        if keys[pygame.K_q] and not self.attacking:
             self.delay = 1.5
             self.attacking = True
             self.attack_time = pygame.time.get_ticks()
             print('attack')
         
         #Nhân vật cast spell
-        if keys[pygame.K_q] and not self.attacking:
-            self.attacking = True
-            self.attack_time = pygame.time.get_ticks()
-            self.attack_animation('cast_spell')
-            print('attack')
+        if keys[pygame.K_e] and not self.casting_spell:
+            self.delay = 0.5
+            self.casting_spell = True
+            self.magic_time = pygame.time.get_ticks()
+            print('magic')
     
     def get_status(self):
         if self.direction == (0, 0):
@@ -92,7 +102,9 @@ class Player(pygame.sprite.Sprite):
             self.status = 'walk_' + self.fancy
         
         if self.attacking:
-            self.status = 'attack_' + self.fancy
+            self.status = 'attack_' + self.fancy        
+        if self.casting_spell:
+            self.status = 'cast_spell_' + self.fancy
             
     def cooldowns(self):
         current_time = pygame.time.get_ticks()
@@ -100,25 +112,21 @@ class Player(pygame.sprite.Sprite):
         if self.attacking:
             if current_time - self.attack_time >= self.attack_cooldown:
                 self.attacking = False
+        
+        if self.casting_spell:
+            if current_time - self.magic_time >= self.magic_cooldown:
+                self.casting_spell = False
                 
-    def set_delay(self, status):
-        print(self.delay)
+    def set_delay(self):
         self.frame_index += self.delay
-        if self.frame_index > len(self.animations[status]):
+        if self.frame_index > len(self.animations[self.status]):
             self.frame_index = 0
-            
-    def attack_animation(self):
-        if 'attack' in self.status:
-            for animation in (self.animations[self.status]):
-                print(animation)
-            # self.image = animation
-        # self.character_direction()
 
     def animate(self, status):
-        self.set_delay(status)
+        self.set_delay()
         self.image = self.animations[status][int(self.frame_index)]
         self.status = status
-        # self.character_direction()
+        self.rect = self.image.get_rect(center = self.hitbox.center)
 
     def move(self, speed):
         if self.direction.magnitude() != 0:  # Trả về độ lớn Euclid của vector
@@ -151,6 +159,6 @@ class Player(pygame.sprite.Sprite):
         self.cooldowns()
         debug(self.rect)
         self.get_status()
-        self.attack_animation()
+        # self.attack_animation()
         self.animate(self.status)
         self.move(self.speed)
