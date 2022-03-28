@@ -1,11 +1,12 @@
 from debug import debug
 import pygame
 from load_image import load_image
+from Setting import *
 
 
 class Player(pygame.sprite.Sprite):
 
-    def __init__(self, pos, groups, obstacles_sprites):
+    def __init__(self, pos, groups, obstacles_sprites, create_attack, destroy_weapon):
         super().__init__(groups)
         self.load_image()
         self.frame_index = 0
@@ -21,6 +22,9 @@ class Player(pygame.sprite.Sprite):
         self.attacking = False 
         self.attack_cooldown = 500
         self.attack_time = None
+        self.create_attack = create_attack
+        
+        self.destroy_weapon = destroy_weapon
         
         self.casting_spell = False
         self.magic_cooldown = 2000
@@ -29,6 +33,19 @@ class Player(pygame.sprite.Sprite):
         
         self.obstacles_sprites = obstacles_sprites
 
+        self.weapon_index = 1
+        self.weapon = list(weapons_data.keys())[self.weapon_index]
+        self.switch_weapon = True
+        self.weapon_switch_time = None
+        self.switch_weapon_cooldown = 200
+        
+        #Chỉ số nhân vật 
+        self.stats = {'health': 100, 'energy': 60, 'attack': 10, 'magic': 4, 'speed': 6}
+        self.health = self.stats['health']
+        self.energy = self.stats['energy']
+        self.exp = 56
+        self.speed = self.stats['speed']
+        
     def load_image(self):
         path = '../Assets/Player/frame/'
         self.animations = {
@@ -40,10 +57,14 @@ class Player(pygame.sprite.Sprite):
             'walk_up': [],
             'walk_down': [],
             'walk_right': [],
-            'attack_left': [],
-            'attack_right': [],
-            'attack_up': [],
-            'attack_down': [],
+            'spear_left': [],
+            'spear_right': [],
+            'spear_up': [],
+            'spear_down': [],
+            'bow_down': [],
+            'bow_left': [],
+            'bow_right': [],
+            'bow_up': [],
             'cast_spell_left': [],
             'cast_spell_down': [],
             'cast_spell_right': [],
@@ -70,7 +91,7 @@ class Player(pygame.sprite.Sprite):
             else:
                 self.direction.x = 0
                 
-
+        
             # Nhân vật di chuyển theo trục Oy
             if keys[pygame.K_w]:
                 self.direction.y = -1
@@ -80,20 +101,29 @@ class Player(pygame.sprite.Sprite):
                 self.fancy = 'down'
             else:
                 self.direction.y = 0
-            
-        # Nhân vật tấn công
-        if keys[pygame.K_q] and not self.attacking:
-            self.delay = 1.5
-            self.attacking = True
-            self.attack_time = pygame.time.get_ticks()
-            print('attack')
         
-        #Nhân vật cast spell
-        if keys[pygame.K_e] and not self.casting_spell:
-            self.delay = 0.5
-            self.casting_spell = True
-            self.magic_time = pygame.time.get_ticks()
-            print('magic')
+        if self.direction == (0, 0): 
+            # Nhân vật tấn công
+            if keys[pygame.K_q] and not self.attacking:
+                self.delay = 0.15
+                self.attacking = True
+                self.attack_time = pygame.time.get_ticks()
+                self.create_attack()
+            
+            #Nhân vật cast spell
+            if keys[pygame.K_e] and not self.casting_spell:
+                self.delay = 0.5
+                self.casting_spell = True
+                self.magic_time = pygame.time.get_ticks()
+                print('magic')
+        
+        if keys[pygame.K_TAB] and self.switch_weapon:
+            self.switch_weapon = False
+            self.weapon_switch_time = pygame.time.get_ticks()
+            self.weapon_index += 1 
+            if self.weapon_index > 1:
+                self.weapon_index = 0
+            self.weapon = list(weapons_data.keys())[self.weapon_index]
     
     def get_status(self):
         if self.direction == (0, 0):
@@ -101,8 +131,10 @@ class Player(pygame.sprite.Sprite):
         else:
             self.status = 'walk_' + self.fancy
         
-        if self.attacking:
-            self.status = 'attack_' + self.fancy        
+        if self.attacking and self.weapon_index == 0:
+            self.status = 'spear_' + self.fancy     
+        elif self.attacking and self.weapon_index ==1:
+            self.status = 'bow_' + self.fancy   
         if self.casting_spell:
             self.status = 'cast_spell_' + self.fancy
             
@@ -112,11 +144,15 @@ class Player(pygame.sprite.Sprite):
         if self.attacking:
             if current_time - self.attack_time >= self.attack_cooldown:
                 self.attacking = False
+                self.destroy_weapon()
         
         if self.casting_spell:
             if current_time - self.magic_time >= self.magic_cooldown:
                 self.casting_spell = False
-                
+        
+        if not self.switch_weapon:
+            if current_time - self.weapon_switch_time >= self.switch_weapon_cooldown:
+                self.switch_weapon = True
     def set_delay(self):
         self.frame_index += self.delay
         if self.frame_index > len(self.animations[self.status]):
@@ -157,8 +193,7 @@ class Player(pygame.sprite.Sprite):
     def update(self):
         self.input()
         self.cooldowns()
-        debug(self.rect)
+        debug(self.status)
         self.get_status()
-        # self.attack_animation()
         self.animate(self.status)
         self.move(self.speed)
